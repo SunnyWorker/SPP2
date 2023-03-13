@@ -1,0 +1,89 @@
+
+.rest {
+    display: flex;
+    flex-direction: column;
+    flex-basis: auto;
+    flex-wrap: nowrap;
+    justify-content: flex-start;
+    align-items: center;
+    border-radius: 30px;
+    border: 1px solid #cccccc;
+    width: 300px;
+    height: 500px;
+    text-decoration: none;
+    color: #000000;
+    margin: 15px 20px 15px 20px;
+}
+
+.rest-add {
+    justify-content: center
+}
+
+
+.rest:hover {
+    transition: all 0.4s;
+    background-color: #dddddd;
+}
+
+.rest .image {
+    display: flex;
+    margin-top: 20px;
+    width: 250px;
+    height: 250px;
+    overflow: hidden;
+    border-radius: 20px;
+    justify-content: center;
+}
+
+
+.rest-add img {
+    width: 70px;
+    height: 70px;
+}
+
+.rest .image img {
+    display: block;
+    margin: 0 auto;
+
+}
+
+.rest .name-n-price {
+    display: flex;
+    flex-direction: row;
+    flex-basis: border-box;
+    width: 250px;
+    justify-content: space-between;
+    margin-top: 10px;
+    margin-bottom: 10px;
+}
+
+.rest .name-n-price .name {
+    max-width: 200px;
+    word-wrap: break-word;
+}
+
+.rest .name-n-price .price {
+    display: flex;
+    align-items: center;
+    align-content: center;
+    justify-content: center;
+    justify-items: center;
+}
+
+.rest .name-n-price .name h3 {
+    text-overflow: clip;
+    overflow: hidden;
+    margin-top: 0;
+    margin-bottom: 0;
+}
+
+.rest .name-n-price .price h3 {
+    margin-top: 0;
+    margin-bottom: 0;
+}
+
+.rest p {
+    word-wrap: break-word;
+    color: #777777;
+    max-width: 250px;
+}

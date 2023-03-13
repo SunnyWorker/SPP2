@@ -1,0 +1,20 @@
+.header {
+    display: flex;
+    flex-direction: row;
+    flex-wrap: nowrap;
+    justify-content: space-between;
+    align-items: center;
+    margin: 0 50px 50px 50px;
+}
+
+.header a {
+    font-family: Naga;
+    font-size: xxx-large;
+    color: #3e8e41;
+    text-decoration: none;
+    margin: 70px 0 70px 0;
+}
+
+.header a h1{
+    margin: 0 0 0 0;
+}

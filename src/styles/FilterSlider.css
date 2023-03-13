@@ -1,0 +1,97 @@
+.filter-sidebar {
+    position: absolute;
+    top: 0px;
+    right: -350px;
+    width: 300px;
+    height: 100%;
+    background-color: white;
+    transition: all 0.5s ease;
+    z-index: 1;
+}
+
+.filter-sidebar.open {
+    right: 0px;
+}
+
+form {
+    max-width: 500px;
+    margin: 0 auto;
+    padding: 20px;
+}
+
+.form-group {
+    margin-bottom: 20px;
+}
+
+label {
+    display: block;
+    margin-bottom: 10px;
+    font-weight: bold;
+}
+
+input[type="radio"] {
+    display: none;
+}
+
+label[for^="price"] {
+    margin-right: 10px;
+}
+
+label[for^="p-name"] {
+    margin-right: 10px;
+}
+
+label[for^="price"]:after {
+    content: '';
+    display: inline-block;
+    width: 15px;
+    height: 15px;
+    border-radius: 50%;
+    border: 2px solid #CCCCCC;
+    margin-right: 5px;
+}
+
+input[type="radio"]:checked + label:after {
+    background-color: #1abc9c;
+    border-color: #1abc9c;
+}
+
+.filterButton {
+    display: block;
+    background-color: #4CAF50;
+    color: #FFFFFF;
+    padding: 10px;
+    border: none;
+    border-radius: 5px;
+    font-size: 16px;
+    cursor: pointer;
+}
+
+.filterButton:hover {
+    background-color: #3e8e41;
+}
+
+.filter-toggle-div:hover .filter-toggle img {
+    animation: shake 0.5s ease-in-out;
+}
+
+@keyframes shake {
+    from {
+        transform: rotate(0deg);
+    }
+    20% {
+        transform: rotate(10deg);
+    }
+    40% {
+        transform: rotate(-10deg);
+    }
+    60% {
+        transform: rotate(5deg);
+    }
+    80% {
+        transform: rotate(-5deg);
+    }
+    to {
+        transform: rotate(0deg);
+    }
+}

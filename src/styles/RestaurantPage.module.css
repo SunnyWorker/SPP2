@@ -1,0 +1,86 @@
+.main {
+    display: flex;
+    flex-direction: column;
+    margin: 0 50px 20px 50px;
+}
+
+.nameNImage {
+    display: flex;
+    flex-direction: row;
+    justify-content: space-between;
+    margin-bottom: 100px;
+}
+
+.name {
+    display: flex;
+    flex-direction: column;
+}
+
+.nameObject {
+    font-family: Naga;
+    color: #3e8e41;
+    margin: 10px 0 10px 0;
+}
+
+.name h1 {
+    font-size: xxx-large;
+    margin-top: 0px;
+}
+
+.name h2 {
+    font-size: xx-large;
+}
+
+.image {
+    max-width: 900px;
+    max-height: 600px;
+    border: 10px #3e8e41 solid;
+    border-radius: 15px;
+    overflow: hidden;
+}
+
+.image img {
+    max-width: 900px; /* Set the maximum width of the image to 100% of the container block */
+    max-height: 600px; /* Set the maximum height of the image to 100% of the container block */
+    display: block; /* Remove any extra space below the image */
+    margin: 0 auto; /* Center the image horizontally */
+}
+
+.description .nameObject {
+    font-size: xx-large;
+}
+
+.description .text {
+    font-size: x-large;
+    word-wrap: break-word;
+}
+
+.appearFromLeft {
+    animation: appearFromLeft 1s ease-in-out forwards;
+}
+
+@keyframes appearFromLeft {
+    from {
+        opacity: 0;
+        transform: translateX(-50px);
+    }
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
+.appearFromRight {
+    animation: appearFromRight 1s ease-in-out;
+}
+
+@keyframes appearFromRight {
+    from {
+        opacity: 0;
+        transform: translateX(50px)
+    }
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
