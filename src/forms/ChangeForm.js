@@ -1,78 +1,69 @@
-import React, {useEffect, useRef, useState} from 'react';
-import Header from "./Header";
-import './styles/Form.css';
+import React, {useContext, useEffect, useRef, useState} from 'react';
+import Header from "../Header";
+import '../styles/Form.css';
 import {useNavigate, useSearchParams} from "react-router-dom";
 import axios from "axios";
+import {analyzeErrorReason, validateField, validateRadioField} from "../Helpers";
+import Cookies from 'js-cookie';
+import UserContext from "../contexts/UserContext";
+import NoAuthorizedPart from "../NoAuthorizedPart";
+import ChangeButton from "../buttons/ChangeButton";
+import DeleteButton from "../buttons/DeleteButton";
+import LoginButton from "../buttons/LoginButton";
+import LogoutButton from "../buttons/LogoutButton";
+import AbsolutePanel from "../buttons/AbsolutePanel";
 
 function ChangeForm() {
 
     const [searchParams] = useSearchParams();
     const [restaurant, setRestaurant] = useState();
+    const [loading, setLoading] = useState(true);
     const [images, setImages] = useState();
     const formRef = useRef();
     const nameRef = useRef();
     const addressRef = useRef();
     const capacityRef = useRef();
     const priceRef = useRef();
-    const nameErrorRef = useRef();
+    const nameExistsErrorRef = useRef();
     const navigate = useNavigate();
+    const {user, getUser} = useContext(UserContext);
 
     useEffect(()=>{
-        axios.get("http://localhost:8080/getRestaurantById?id="+searchParams.get("id"))
+        const config = {
+            withCredentials: true
+        }
+        axios.get("http://localhost:8080/getRestaurantById?id="+searchParams.get("id"), config)
             .then(response => {
                 setRestaurant(response.data.restaurant);
-            });
+            }).catch(reason => setRestaurant(""));
 
-        axios.get("http://localhost:8080/getImages?id="+searchParams.get("id"))
+        axios.get("http://localhost:8080/getImages?id="+searchParams.get("id"), config)
             .then(response => {
                 setImages(response.data.images);
-            });
-
+            }).catch(reason => setImages(""));
+        getUser();
     },[searchParams]);
 
     function handleClick() {
         try {
             const formData = new FormData(formRef.current);
-            let correct = true;
-            if(formData.get('name')==="") {
-                nameRef.current.setCustomValidity("Необходимо ввести!");
-                correct = false;
-            }
-            else nameRef.current.setCustomValidity("");
-            if(formData.get('address')==="") {
-                addressRef.current.setCustomValidity("Необходимо ввести!");
-                correct = false;
-            }
-            else addressRef.current.setCustomValidity("");
-            if(formData.get('capacity')==="") {
-                capacityRef.current.setCustomValidity("Необходимо ввести!");
-                correct = false;
-            }
-            else capacityRef.current.setCustomValidity("");
-            if(formData.get('price')===undefined) {
-                priceRef.current.style.color = "#CC0000";
-                correct = false;
-            }
-            else priceRef.current.style.color = "black";
-            if(correct) {
+            let correct = 0;
+            correct += validateField(nameRef,formData.get('name'),"")
+            correct += validateField(addressRef,formData.get('address'),"")
+            correct += validateField(capacityRef,formData.get('capacity'),"")
+            correct += validateRadioField(priceRef,formData.get('price'))
 
+            if(correct===0) {
                 const config = {
-                    headers: { 'content-type': 'multipart/form-data' }
+                    headers: {
+                        'content-type': 'multipart/form-data'
+                    },
+                    withCredentials: true
                 }
-
                 axios.put("http://localhost:8080/change-rest?id="+restaurant.r_id,formData, config).then((response)=>{
                     navigate('/restaurant?id=' + restaurant.r_id,{replace: true});
                 }).catch(reason=>{
-                    console.log(reason.response);
-                    if(reason.response.status===400) {
-                        let body = reason.response.data;
-                        if (body.errors.nameExistsError !== undefined) {
-                            nameErrorRef.current.style.display = 'block';
-                            nameErrorRef.current.textContent = body.errors.nameExistsError;
-                        } else {
-                            nameErrorRef.current.style.display = 'none';
-                        }
-                    }
+                    analyzeErrorReason(reason,[nameExistsErrorRef], "nameExistsError")
                 })
             }
         } catch (errors) {
@@ -80,12 +71,19 @@ function ChangeForm() {
         }
     }
 
-    if(restaurant && images) {
+    useEffect(()=>{
+        if(restaurant!=undefined && images!=undefined && user!=undefined) setLoading(false)
+    },[restaurant , images , user]);
+
+    if(loading) return (
+        <Header/>
+    );
+    else if(user !== "" && (user.role_name===process.env.REACT_APP_ADMIN_ROLE || user.u_id===restaurant.r_owner_id)) {
         return (
             <>
                 <Header/>
                 <form id="form" ref={formRef}>
-                    <label htmlFor="error" className="error" id="nameError" ref={nameErrorRef}></label>
+                    <label htmlFor="error" className="error" id="nameExistsError" ref={nameExistsErrorRef}></label>
                     <label htmlFor="name">Имя ресторана:</label>
                     <input type="text" name="name" id="name" ref={nameRef} defaultValue={restaurant.r_name}/>
 
@@ -126,6 +124,25 @@ function ChangeForm() {
                         Изменить
                     </button>
                 </form>
+                <AbsolutePanel>
+                    {user === "" ? <LoginButton/> : <LogoutButton/>}
+                </AbsolutePanel>
+            </>
+        );
+    }
+    else if(user !== "" && user.role_name!==process.env.REACT_APP_ADMIN_ROLE && user.u_id!==restaurant.r_owner_id) {
+        return (
+            <>
+                <Header/>
+                <NoAuthorizedPart message={"Вы не имеете права изменять информацию об этом ресторане!"} advice={"И вы не можете это исправить!"}  href={"/main"} linkText={"В главное меню!"}/>
+            </>
+        );
+    }
+    else if(user==="") {
+        return (
+            <>
+                <Header/>
+                <NoAuthorizedPart message={"Вы не имеете доступ к этой части сайта, если вы не владелец данного ресторана!"}  advice={"Но вы всегда можете это исправить!"}  href={"/login"} linkText={"Войти"}/>
             </>
         );
     }

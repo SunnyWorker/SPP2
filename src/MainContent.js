@@ -1,11 +1,14 @@
 import Header from "./Header";
 import RestaurantList from "./RestaurantList";
 import './styles/MainContent.css';
-import FilterContext from './FilterContext';
-import {useContext, useEffect, useRef} from "react";
+import FilterContext from './contexts/FilterContext';
+import React, {useContext, useEffect, useRef} from "react";
+import UserContext from "./contexts/UserContext";
+import NoAuthorizedPart from "./NoAuthorizedPart";
 
 function MainContent() {
 
+    const {user} = useContext(UserContext);
     const { filter, setFilter } = useContext(FilterContext);
     const mainRef = useRef();
 
@@ -16,11 +19,11 @@ function MainContent() {
     function closeFilter() {
         if(filter==="open") setFilter("close");
     }
-
+    console.log(user==="")
     return (
       <div ref={mainRef} className="main" onClick={closeFilter}>
           <Header/>
-          <RestaurantList/>
+          {user === "" ? <NoAuthorizedPart message={"Вы не авторизованы!"} advice={"Но вы всегда можете это исправить!"} href={"/login"} linkText={"Войти"}/> : <RestaurantList/>}
       </div>
     );
 }

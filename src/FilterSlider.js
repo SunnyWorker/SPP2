@@ -1,14 +1,11 @@
 import React, {useContext, useEffect, useRef} from 'react';
 import './styles/FilterSlider.css';
-import FilterContext from './FilterContext';
-import axios from "axios";
-import RestaurantContext from "./RestaurantContext";
+import FilterContext from './contexts/FilterContext';
 
 function FilterSlider() {
 
     const { filter } = useContext(FilterContext);
     const sliderRef = useRef();
-    const {setRestaurants, setImages} = useContext(RestaurantContext);
 
     useEffect(()=>{
         if(filter==="open" || filter==="close") sliderRef.current.classList.toggle('open');

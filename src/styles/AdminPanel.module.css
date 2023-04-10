@@ -9,93 +9,145 @@
     z-index: 2;
 }
 
-.changeToggleDiv {
-    transform: translateX(90px);
+.toggleDiv {
     transition: all 0.4s ease-in-out;
     display: flex;
     flex-direction: row;
     align-items: center;
     height: 40px;
-    background-color: darkorange;
-    color: white;
     border: none;
     font-size: 16px;
     cursor: pointer;
 }
 
-.changeToggleDiv:hover {
+.toggle {
+    display: flex;
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: center;
+    height: inherit;
+    padding: 10px;
+    border: none;
+    font-size: 16px;
+    cursor: pointer;
+    box-sizing: border-box;
+    text-decoration: none;
+}
+
+.change {
+    transform: translateX(90px);
+    background-color: darkorange;
+    color: white;
+}
+
+.change:hover {
     transform: translateX(0px);
 }
 
-.changeToggleDiv:hover .changeToggle img {
+.change:hover .changeToggle img {
     transform: rotate(0.5turn);
 }
 
 .changeToggle {
-    display: flex;
-    flex-direction: row;
-    justify-content: space-between;
-    align-items: center;
     width: 130px;
     background-color: darkorange;
-    height: inherit;
     color: white;
-    padding: 10px;
-    border: none;
-    font-size: 16px;
-    cursor: pointer;
-    box-sizing: border-box;
-    text-decoration: none;
 }
 
 .changeToggle img {
-    max-width: 100%;
-    max-height: 100%;
     transition: all 0.4s ease-in-out;
 }
 
-.deleteToggleDiv {
+.delete {
     transform: translateX(80.5px);
-    transition: all 0.4s ease-in-out;
-    display: flex;
-    flex-direction: row;
-    align-items: center;
-    height: 40px;
     background-color: darkred;
     color: white;
-    border: none;
-    font-size: 16px;
-    cursor: pointer;
 }
 
-.deleteToggleDiv:hover  {
+.delete:hover  {
     transform: translateX(0px);
 }
 
-.deleteToggleDiv:hover .deleteToggle img {
+.delete:hover .deleteToggle img {
     animation: shake 1s ease-in-out;
 }
 
 .deleteToggle {
-    display: flex;
-    flex-direction: row;
-    justify-content: space-between;
-    align-items: center;
     width: 120px;
     background-color: darkred;
-    height: inherit;
     color: white;
-    padding: 10px;
-    border: none;
-    font-size: 16px;
-    cursor: pointer;
-    box-sizing: border-box;
-    text-decoration: none;
 }
 
-.deleteToggle img {
+.toggle img {
     max-width: 100%;
     max-height: 100%;
+}
+
+
+.login {
+    transform: translateX(90px);
+    background-color: white;
+    color: #790099;
+}
+
+.login:hover  {
+    transform: translateX(3px);
+}
+
+.loginToggle {
+    width: 130px;
+    background-color: white;
+    color: #790099;
+    border: #790099;
+}
+
+.logout {
+    transform: translateX(90px);
+    background-color: #790099;
+    color: white;
+}
+
+.logout:hover  {
+    transform: translateX(3px);
+}
+
+.logoutToggle {
+    width: 130px;
+    background-color: #790099;
+    color: white;
+}
+
+.registration {
+    transform: translateX(110px);
+    background-color: white;
+    color: #790099;
+}
+
+.registration:hover  {
+    transform: translateX(0px);
+}
+
+.registrationToggle {
+    width: 150px;
+    background-color: white;
+    color: #790099;
+    border: #790099;
+}
+
+.filter {
+    transform: translateX(80px);
+    background-color: green;
+    color: white;
+}
+
+.filter:hover {
+    transform: translateX(0px);
+}
+
+.filterToggle {
+    width: 120px;
+    background-color: green;
+    color: white;
 }
 
 @keyframes shake {
@@ -113,6 +165,32 @@
     }
     80% {
         transform: rotate(-15deg);
+    }
+    to {
+        transform: rotate(0deg);
+    }
+}
+
+
+.filter:hover .filterToggle img {
+    animation: shakeFilter 0.5s ease-in-out;
+}
+
+@keyframes shakeFilter {
+    from {
+        transform: rotate(0deg);
+    }
+    20% {
+        transform: rotate(10deg);
+    }
+    40% {
+        transform: rotate(-10deg);
+    }
+    60% {
+        transform: rotate(5deg);
+    }
+    80% {
+        transform: rotate(-5deg);
     }
     to {
         transform: rotate(0deg);

@@ -1,10 +1,11 @@
 import React, {useEffect} from 'react';
 import './styles/RestaurantElement.css';
+import {Link} from "react-router-dom";
 
 function RestaurantElement(props) {
 
     return (
-        <a href={'/restaurant?id='+props.restaurant.r_id} className="rest">
+        <Link to={'/restaurant?id='+props.restaurant.r_id} className="rest">
             <div className="image">
                 <img src={'/images/' + props.image} alt={""}/>
             </div>
@@ -23,7 +24,7 @@ function RestaurantElement(props) {
             <p>
                 {props.restaurant.r_address}
             </p>
-        </a>
+        </Link>
     );
 }
 

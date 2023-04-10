@@ -4,6 +4,7 @@
     right: -350px;
     width: 300px;
     height: 100%;
+    overflow-y: hidden;
     background-color: white;
     transition: all 0.5s ease;
     z-index: 1;
@@ -69,29 +70,4 @@ input[type="radio"]:checked + label:after {
 
 .filterButton:hover {
     background-color: #3e8e41;
-}
-
-.filter-toggle-div:hover .filter-toggle img {
-    animation: shake 0.5s ease-in-out;
-}
-
-@keyframes shake {
-    from {
-        transform: rotate(0deg);
-    }
-    20% {
-        transform: rotate(10deg);
-    }
-    40% {
-        transform: rotate(-10deg);
-    }
-    60% {
-        transform: rotate(5deg);
-    }
-    80% {
-        transform: rotate(-5deg);
-    }
-    to {
-        transform: rotate(0deg);
-    }
 }
