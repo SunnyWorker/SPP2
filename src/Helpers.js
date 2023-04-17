@@ -17,16 +17,13 @@ export function validateRadioField(ref,value) {
     return 0;
 }
 
-export function analyzeErrorReason(reason,errorFields, errors) {
-    if(reason.response.status===400) {
-        let body = reason.response.data;
-        for (let i = 0; i < errorFields.length; i++) {
-            if (body.errors[errors[i]] !== undefined) {
-                errorFields[i].current.style.display = 'block';
-                errorFields[i].current.textContent = body.errors[errors[i]];
-            } else {
-                errorFields[i].current.style.display = 'none';
-            }
+export function analyzeErrorReason(errorsObj, errorFields, errors) {
+    for (let i = 0; i < errorFields.length; i++) {
+        if (errorsObj[errors[i]] !== undefined) {
+            errorFields[i].current.style.display = 'block';
+            errorFields[i].current.textContent = errorsObj[errors[i]];
+        } else {
+            errorFields[i].current.style.display = 'none';
         }
     }
 }

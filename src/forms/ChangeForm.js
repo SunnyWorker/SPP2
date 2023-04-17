@@ -4,14 +4,12 @@ import '../styles/Form.css';
 import {useNavigate, useSearchParams} from "react-router-dom";
 import axios from "axios";
 import {analyzeErrorReason, validateField, validateRadioField} from "../Helpers";
-import Cookies from 'js-cookie';
 import UserContext from "../contexts/UserContext";
 import NoAuthorizedPart from "../NoAuthorizedPart";
-import ChangeButton from "../buttons/ChangeButton";
-import DeleteButton from "../buttons/DeleteButton";
 import LoginButton from "../buttons/LoginButton";
 import LogoutButton from "../buttons/LogoutButton";
 import AbsolutePanel from "../buttons/AbsolutePanel";
+import {useCookies} from "react-cookie";
 
 function ChangeForm() {
 
@@ -27,22 +25,45 @@ function ChangeForm() {
     const nameExistsErrorRef = useRef();
     const navigate = useNavigate();
     const {user, getUser} = useContext(UserContext);
+    const {socket} = useContext(UserContext);
+    const [cookies] = useCookies(['JWT']);
 
     useEffect(()=>{
-        const config = {
-            withCredentials: true
-        }
-        axios.get("http://localhost:8080/getRestaurantById?id="+searchParams.get("id"), config)
-            .then(response => {
-                setRestaurant(response.data.restaurant);
-            }).catch(reason => setRestaurant(""));
-
-        axios.get("http://localhost:8080/getImages?id="+searchParams.get("id"), config)
-            .then(response => {
-                setImages(response.data.images);
-            }).catch(reason => setImages(""));
+        let req = {};
+        req.id = searchParams.get("id");
+        req.cookies = cookies;
         getUser();
+        socket.emit("getRestaurantById",req);
+        socket.emit("getImages",req);
+
+        socket.on('getRestaurantById', (restaurant) => {
+            setRestaurant(restaurant);
+        });
+
+        socket.on('Unauthorized', (restaurant) => {
+            setRestaurant("");
+            setImages("");
+        });
+
+        socket.on('getImages', (images) => {
+            setImages(images);
+        });
+
+        socket.on('Информация о ресторане изменена!', () => {
+            navigate('/restaurant?id=' + searchParams.get("id"),{replace: true});
+        });
+
     },[searchParams]);
+
+    useEffect(()=>{
+        socket.on("Errors", (errors) => {
+            if (nameExistsErrorRef.current) {
+                analyzeErrorReason(errors,[nameExistsErrorRef],["nameExistsError"])
+            }
+        });
+    },[nameExistsErrorRef]);
+
+
 
     function handleClick() {
         try {
@@ -54,17 +75,34 @@ function ChangeForm() {
             correct += validateRadioField(priceRef,formData.get('price'))
 
             if(correct===0) {
+                let req = {};
                 const config = {
                     headers: {
                         'content-type': 'multipart/form-data'
                     },
                     withCredentials: true
                 }
-                axios.put("http://localhost:8080/change-rest?id="+restaurant.r_id,formData, config).then((response)=>{
-                    navigate('/restaurant?id=' + restaurant.r_id,{replace: true});
-                }).catch(reason=>{
-                    analyzeErrorReason(reason,[nameExistsErrorRef], "nameExistsError")
-                })
+                req.id = searchParams.get("id");
+                req.name = formData.get('name');
+                req.address = formData.get('address');
+                req.capacity = formData.get('capacity');
+                req.price = formData.get('price');
+                req.description = formData.get('description');
+                req.image = formData.get('image');
+                req.cookies = cookies;
+                if(req.image) {
+                    axios.post("http://localhost:3001/load-picture",formData, config).then((response)=>{
+                        req.imageName = response.data.name;
+                        console.log(req.imageName)
+                        socket.emit("change-rest",req);
+                    }).catch(reason => {
+                        socket.emit("change-rest",req);
+                    })
+                }
+                else {
+                    socket.emit("change-rest",req);
+                }
+
             }
         } catch (errors) {
             console.error(errors);
@@ -74,6 +112,8 @@ function ChangeForm() {
     useEffect(()=>{
         if(restaurant!=undefined && images!=undefined && user!=undefined) setLoading(false)
     },[restaurant , images , user]);
+
+
 
     if(loading) return (
         <Header/>
@@ -146,6 +186,7 @@ function ChangeForm() {
             </>
         );
     }
+
 }
 
 export default ChangeForm;

@@ -1,9 +1,8 @@
-import React, {useContext, useRef} from 'react';
+import React, {useContext, useEffect, useRef} from 'react';
 import '../styles/RegistrationForm.css';
 import Header from "../Header";
 import {useNavigate} from "react-router-dom";
 import {analyzeErrorReason, validateField} from "../Helpers";
-import axios from "axios";
 import AbsolutePanel from "../buttons/AbsolutePanel";
 import RegistrationButton from "../buttons/RegistrationButton";
 import UserContext from "../contexts/UserContext";
@@ -16,6 +15,20 @@ function LoginForm(props) {
     const alreadyAuthorizedErrorRef = useRef();
     const navigate = useNavigate();
     const {user, getUser} = useContext(UserContext);
+    const {socket} = useContext(UserContext);
+
+    useEffect(()=>{
+        socket.on("set-cookie", (cookie) => {
+            navigate("/main",{replace:true})
+        });
+    },[]);
+
+    useEffect(()=>{
+        socket.on("Errors", (errors) => {
+            if(noCorrectDataErrorRef.current && alreadyAuthorizedErrorRef.current)
+                analyzeErrorReason(errors,[noCorrectDataErrorRef, alreadyAuthorizedErrorRef], ["noCorrectDataError", "alreadyAuthorizedError"])
+        });
+    },[noCorrectDataErrorRef, alreadyAuthorizedErrorRef]);
 
     function handleClick() {
         try {
@@ -24,16 +37,10 @@ function LoginForm(props) {
             correct += validateField(emailRef,formData.get('email'),"")
             correct += validateField(passwordRef,formData.get('password'),"")
             if (correct===0) {
-                const config = {
-                    headers: {'content-type': 'multipart/form-data'},
-                    withCredentials: true
-                }
-                axios.post("http://localhost:8080/login", formData, config).then(response => {
-                    navigate("/main",{replace: true});
-                }).catch(reason => {
-                    analyzeErrorReason(reason,[noCorrectDataErrorRef, alreadyAuthorizedErrorRef], ["noCorrectDataError", "alreadyAuthorizedError"])
-                });
-
+                let req = {};
+                req.email = formData.get('email');
+                req.password = formData.get('password');
+                socket.emit("login",req);
             }
         } catch (errors) {
             console.error(errors);

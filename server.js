@@ -1,13 +1,24 @@
-const express = require('express')
+const express = require('express');
+const app = express();
 const multer = require("multer");
 const fs = require('fs');
 const mysql = require('mysql2');
-const crypto = require("crypto")
 const imagesFolder = __dirname + "\\public\\images\\";
 const jwt = require('jsonwebtoken');
+const server = require('http').Server(app);
+const io = require('socket.io')(server, {
+    cors: {
+        origin: "http://localhost:3000",
+        methods: ["GET", "POST", "PUT", "DELETE"],
+        allowedHeaders: ["*"],
+        credentials: true
+    }
+});
 const bcrypt = require('bcrypt');
 const cookieParser = require('cookie-parser');
 require("dotenv").config();
+const cors = require('cors');
+
 
 const storage = multer.diskStorage({
     destination: (req, file, cb) => {
@@ -87,272 +98,284 @@ db.query('CREATE TABLE IF NOT EXISTS RestaurantImages (' +
 
 function allowCrossDomain(req, res, next) {
     res.header('Access-Control-Allow-Origin', 'http://localhost:3000');
-    res.header('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE');
+    res.header('Access-Control-Allow-Methods', 'POST');
     res.header('Access-Control-Allow-Headers', '*');
     res.header('Access-Control-Allow-Credentials', 'true');
     next();
 }
 
-const verifyUserToken = (req, res, next) => {
-    if (req.cookies == undefined || req.cookies.JWT == undefined) {
-        return res.status(401).send("Unauthorized request");
-    }
-    const token = req.cookies.JWT;
-    try {
-        const decoded = jwt.verify(token, process.env.JWT_SECRET);
-        req.user = decoded.user;
-        next();
-    } catch (err) {
-        res.status(400).send("Invalid token.");
-    }
-};
+// const verifyUserTokenHttp = (req, res, next) => {
+//     if (req.cookies == undefined || req.cookies.JWT == undefined) {
+//         return res.status(401).send("Unauthorized request");
+//     }
+//     const token = req.cookies.JWT;
+//     try {
+//         const decoded = jwt.verify(token, process.env.JWT_SECRET);
+//         req.user = decoded.user;
+//         next();
+//     } catch (err) {
+//         res.status(400).send("Invalid token.");
+//     }
+// };
 
-const server = express();
-server.use(allowCrossDomain);
-server.use(cookieParser());
-server.use(express.static(__dirname + "/public"));
-server.use(express.urlencoded(false));
+app.use(allowCrossDomain);
+app.use(cookieParser());
+app.use(express.urlencoded(false));
 
-let subscribers = {};
+io.on('connection', (socket) => {
 
-server.get('/getAllRestaurants', verifyUserToken, async function (req, res) {
-    const name = req.query.name;
-    const price = req.query.price;
-    const capacityFrom = req.query.capacityFrom;
-    const capacityTo = req.query.capacityTo;
-    let restaurants = await getAllRestaurants();
-    if(name!==undefined && name!=="") restaurants = restaurants.filter(rest => rest.r_name.toUpperCase().includes(name.toUpperCase()));
-    if(price!==undefined && price!=="") restaurants = restaurants.filter(rest => rest.r_price===price);
-    if(capacityFrom!==undefined && capacityFrom!=="") restaurants = restaurants.filter(rest => rest.r_capacity >= capacityFrom);
-    if(capacityTo!==undefined && capacityTo!=="") restaurants = restaurants.filter(rest => rest.r_capacity <= capacityTo);
-    res.status(200).send({
-        restaurants : restaurants
-    });
-})
-
-server.get('/long-polling', verifyUserToken, async function (req, res) {
-    let id = req.cookies.JWT+crypto.randomBytes(16).toString();
-    subscribers[id] = res;
-    setTimeout(()=>{
-        if(subscribers[id] && !subscribers[id].headersSent) {
-            subscribers[id].status(200).send({
-                message: "overdue"
-            });
+    function verifyUserToken (req) {
+        if (req.cookies == undefined || req.cookies.JWT == undefined) {
+            socket.emit("Unauthorized");
+            return false;
         }
-    },60*1000);
-})
-
-server.get('/getUserInfo', verifyUserToken, async function (req, res) {
-    const user = req.user;
-    user.u_password = null;
-    res.status(200).send({
-        user: user
-    });
-})
-
-server.post("/registration", upload.single('image'), async (req, res) => {
-    let {nickname, surname, name, patronymic, email, password, sex, role} = req.body;
-    const image = req.file;
-    const nicknameResult = await getAllUsers({"u_nickname":nickname});
-    const emailResult = await getAllUsers({"u_email":email});
-    let correct = true;
-    let errors = {};
-    if(nicknameResult.length>0) {
-        correct = false;
-        errors.nicknameError = 'Никнейм уже занят!';
-    }
-    if(emailResult.length>0) {
-        correct = false;
-        errors.emailError = 'Почтовый ящик уже занят!';
-    }
-    if (req.cookies !== undefined && req.cookies.JWT !== undefined) {
-        correct = false;
-        errors.alreadyAuthorizedError = 'Вы уже авторизованы!';
-    }
-    if(!correct) {
-        if(image!==undefined) fs.rmSync(imagesFolder+image.filename);
-        res.status(400).send({ errors: errors });
-    }
-    else {
-        let imageId = 1;
-        let fields, values;
-        if(image!==undefined) {
-            values = [
-                image.filename
-            ];
-            fields = ['ui_filepath'];
-            let result = await addUserImage(values,fields);
-            imageId = result.insertId;
+        const token = req.cookies.JWT;
+        try {
+            const decoded = jwt.verify(token, process.env.JWT_SECRET);
+            req.user = decoded.user;
+            return true;
+        } catch (err) {
+            socket.emit("Unauthorized");
+            return false;
         }
-        const hash = await bcrypt.hash(password, 10);
-        fields = ['u_nickname,u_surname,u_name,u_patronymic,u_email,u_password,u_sex,u_role_id,u_profile_image_id'];
-        values = [
-            nickname,surname,name,patronymic,email,hash,sex,role,imageId
-        ];
-        await addUser(values, fields);
-        const user = await getUserByEmail(email);
-        const token = await jwt.sign({ user }, process.env.JWT_SECRET, {
-            expiresIn: "1h",
-        });
-        await res.cookie("JWT",token, { maxAge: 3600000, httpOnly: true, path: "/", secure: false}).status(200).send({user:user});
     }
-});
 
-server.post("/login", upload.none(), async (req, res) => {
-    let {email, password} = req.body;
-    const user = await getUserByEmail(email);
-    let correct = true;
-    let errors = {};
-    if(!user || !bcrypt.compareSync(password, user.u_password)) {
-        correct = false;
-        errors.noCorrectDataError= 'Неверный логин или пароль!';
-    }
-    if (req.cookies !== undefined && req.cookies.JWT !== undefined) {
-        correct = false;
-        errors.alreadyAuthorizedError = 'Вы уже авторизованы!';
-    }
-    if(!correct) {
-        res.status(400).send({ errors: errors });
-    }
-    else {
-        const token = await jwt.sign({ user }, process.env.JWT_SECRET, {
-            expiresIn: "1h",
-        });
-        await res.cookie("JWT",token, { maxAge: 3600000, httpOnly: true, path: "/", secure: false}).status(200).send({user:user});
-    }
-});
+    app.post('/load-picture', upload.single('image'), async (req, res) => {
+        const image = req.file;
+        if(image) res.status(200).send({name:image.filename});
+        else res.status(400).send();
+    })
 
-server.post("/logout", verifyUserToken, async (req, res) => {
-    await res.clearCookie("JWT").status(200).send();
-});
-
-server.get('/getRestaurantById', verifyUserToken, async function (req, res) {
-    const id = req.query.id;
-    const restaurants = await getRestaurantById(id)
-    res.status(200).send({
-        restaurant : restaurants
+    socket.on('getAllRestaurants', async (req) => {
+        if(!verifyUserToken(req)) return;
+        const name = req.name;
+        const price = req.price;
+        const capacityFrom = req.capacityFrom;
+        const capacityTo = req.capacityTo;
+        let restaurants = await getAllRestaurants();
+        if(name && name!=="") restaurants = restaurants.filter(rest => rest.r_name.toUpperCase().includes(name.toUpperCase()));
+        if(price && price!=="") restaurants = restaurants.filter(rest => rest.r_price===price);
+        if(capacityFrom && capacityFrom!=="") restaurants = restaurants.filter(rest => rest.r_capacity >= capacityFrom);
+        if(capacityTo && capacityTo!=="") restaurants = restaurants.filter(rest => rest.r_capacity <= capacityTo);
+        return socket.emit("getAllRestaurants",restaurants);
     });
-})
 
-server.get('/getMainImages', verifyUserToken, async function (req, res) {
-    const images = await getMainRestaurantImages();
-    res.status(200).send({
-        images : images
+    socket.on('getUserInfo', async (req) => {
+        if(!verifyUserToken(req)) return socket.emit("getUserInfo","");
+        const user = req.user;
+        user.u_password = null;
+        return socket.emit("getUserInfo",user);
     });
-})
 
-server.get('/getImages', verifyUserToken, async function (req, res) {
-    const id = req.query.id;
-    const images = await getRestaurantImages(id);
-
-    res.status(200).send({
-        images : images
-    });
-})
-
-server.post('/add-rest', verifyUserToken, upload.single('image'), async (req, res) => {
-    const user = req.user;
-    const { name, address, capacity, price, description} = req.body;
-    const image = req.file;
-    if(user.role_name!=='admin' && user.role_name!=='owner')
-        return res.status(403).send('Вы не можете добавлять рестораны!');
-    const nameResult = await getAllRestaurants({"r_name":name});
-    let correct = true;
-    let errors = {};
-    if(nameResult.length>0) {
-        correct = false;
-        errors.nameExistsError = 'Имя ресторана уже занято!';
-    }
-    if(!correct) {
-        if(image!==undefined) fs.rmSync(imagesFolder+image.filename);
-        res.status(400).send({ errors: errors });
-    }
-    else {
-        let values = [
-            name, address, capacity, price, description, req.user.u_id
-        ];
-        let fields = ['r_name,r_address,r_capacity,r_price,r_description, r_owner_id'];
-        let result = await addRestaurant(values,fields);
-        fields = ['ri_restaurant_id,ri_filepath,ri_is_main'];
-        values = [
-            result.insertId, image.filename, true
-        ];
-        await addRestaurantImage(values, fields);
-        await fireLongPolling();
-        let id = result.insertId;
-        res.status(200).send({id:id});
-    }
-})
-
-server.put('/change-rest', verifyUserToken, upload.single('image'), async (req, res) => {
-    const id = req.query.id;
-    const user = req.user;
-    const { name, address, capacity, price, description} = req.body;
-    const image = req.file;
-    const oldInfo = await getRestaurantById(id);
-    if(user.role_name!=='admin' && oldInfo.r_owner_id!==user.u_id) {
-        return res.status(403).send('Недостаточно прав!');
-    }
-    const nameResult = await getAllRestaurants({"r_name":name});
-    let correct = true;
-    let errors = {};
-    if(nameResult.length>0 && oldInfo.r_name!==nameResult[0].r_name) {
-        correct = false;
-        errors.nameExistsError = 'Имя ресторана уже занято!';
-    }
-    if(!correct) {
-        if(image!==undefined) fs.rmSync(imagesFolder+image.filename);
-        res.status(400).send({ errors: errors });
-    }
-    else {
-        if(image!==undefined) {
-            let oldImage = (await getRestaurantImages(id))[0];
-            await fs.rm(imagesFolder+oldImage.ri_filepath,()=>{
-
-            });
-            await changeRestaurantImage(oldImage.ri_filepath, image.filename)
+    socket.on('registration', async (req) => {
+        let {nickname, surname, name, patronymic, email, password, sex, role} = req;
+        const image = req.imageName;
+        const nicknameResult = await getAllUsers({"u_nickname":nickname});
+        const emailResult = await getAllUsers({"u_email":email});
+        let correct = true;
+        let errors = {};
+        if(nicknameResult.length>0) {
+            correct = false;
+            errors.nicknameError = 'Никнейм уже занят!';
         }
-        let values =
-            [name, address, capacity, price, description, id];
-        let fields = ['r_name','r_address','r_capacity','r_price','r_description'];
-        await updateRestaurant(values,fields,id);
-        await fireLongPolling();
-        await res.status(200).send('Информация о ресторане изменена!');
-    }
-})
-
-server.delete('/delete-rest', verifyUserToken, async (req, res) => {
-    const r_id = req.query.id;
-    const user = req.user;
-    const oldInfo = await getRestaurantById(r_id);
-    if(user.role_name!=='admin' && oldInfo.r_owner_id!==user.u_id)
-        return res.status(403).send('Недостаточно прав!');
-    if(oldInfo==undefined) {
-        return res.status(404).send("Ресторан с id "+r_id+" не существует!");
-    }
-    else {
-        let images = await getRestaurantImages(r_id);
-        for (let i = 0; i < images.length; i++) {
-            try {
-                fs.rmSync(imagesFolder + images[i].ri_filepath);
-            }catch (reason) {
-
+        if(emailResult.length>0) {
+            correct = false;
+            errors.emailError = 'Почтовый ящик уже занят!';
+        }
+        if (req.cookies !== undefined && req.cookies.JWT !== undefined) {
+            correct = false;
+            errors.alreadyAuthorizedError = 'Вы уже авторизованы!';
+        }
+        if(!correct) {
+            if(image!==undefined) fs.rmSync(imagesFolder+image);
+            return socket.emit("Errors",errors);
+        }
+        else {
+            let imageId = 1;
+            let fields, values;
+            if(image!==undefined) {
+                values = [
+                    image
+                ];
+                fields = ['ui_filepath'];
+                let result = await addUserImage(values,fields);
+                imageId = result.insertId;
             }
+            const hash = await bcrypt.hash(password, 10);
+            fields = ['u_nickname,u_surname,u_name,u_patronymic,u_email,u_password,u_sex,u_role_id,u_profile_image_id'];
+            values = [
+                nickname,surname,name,patronymic,email,hash,sex,role,imageId
+            ];
+            await addUser(values, fields);
+            const user = await getUserByEmail(email);
+            const token = await jwt.sign({ user }, process.env.JWT_SECRET, {
+                expiresIn: "1h",
+            });
+            let cookieHeader = {};
+            cookieHeader.name = "JWT";
+            cookieHeader.value = token;
+            cookieHeader.options = {
+                maxAge: 3600000, path: "/", secure: true, sameSite: false
+            };
+            socket.emit('set-cookie', cookieHeader);
         }
-        await deleteRestaurant(r_id);
-        await fireLongPolling();
-        await res.status(200).send('Ресторан удалён!');
-    }
-})
+    });
+
+    socket.on('login', async (req) => {
+        let {email, password} = req;
+        const user = await getUserByEmail(email);
+        let correct = true;
+        let errors = {};
+        if(!user || !bcrypt.compareSync(password, user.u_password)) {
+            correct = false;
+            errors.noCorrectDataError= 'Неверный логин или пароль!';
+        }
+        if (req.cookies !== undefined && req.cookies.JWT !== undefined) {
+            correct = false;
+            errors.alreadyAuthorizedError = 'Вы уже авторизованы!';
+        }
+        if(!correct) {
+            return socket.emit("Errors",errors);
+        }
+        else {
+            const token = await jwt.sign({ user }, process.env.JWT_SECRET, {
+                expiresIn: "1h",
+            });
+            let cookieHeader = {};
+            cookieHeader.name = "JWT";
+            cookieHeader.value = token;
+            cookieHeader.options = {
+                maxAge: 3600000, path: "/", secure: true, sameSite: false
+            };
+            socket.emit('set-cookie', cookieHeader);
+        }
+    });
+
+    socket.on('logout', async (req) => {
+        socket.emit('clear-cookie', "JWT");
+    });
+
+    socket.on('getRestaurantById', async (req) => {
+        if(!verifyUserToken(req)) return;
+        const id = req.id;
+        const restaurant = await getRestaurantById(id)
+        return socket.emit("getRestaurantById",restaurant);
+    });
+
+    socket.on('getMainImages', async (req) => {
+        if(!verifyUserToken(req)) return;
+        const images = await getMainRestaurantImages();
+        return socket.emit("getMainImages",images);
+    });
+
+    socket.on('getImages', async (req) => {
+        if(!verifyUserToken(req)) return;
+        const id = req.id;
+        const images = await getRestaurantImages(id);
+
+        return socket.emit("getImages",images);
+    });
+
+    socket.on('add-rest', async (req) => {
+        if(!verifyUserToken(req)) return;
+        const user = req.user;
+        const { name, address, capacity, price, description} = req;
+        const image = req.imageName;
+        if(user.role_name!=='admin' && user.role_name!=='owner')
+            return socket.emit('Вы не можете добавлять рестораны!');
+        const nameResult = await getAllRestaurants({"r_name":name});
+        let correct = true;
+        let errors = {};
+        if(nameResult.length>0) {
+            correct = false;
+            errors.nameExistsError = 'Имя ресторана уже занято!';
+        }
+        if(!correct) {
+            if(image!==undefined) fs.rmSync(imagesFolder+image);
+            return socket.emit("Errors",errors);
+        }
+        else {
+            let values = [
+                name, address, capacity, price, description, req.user.u_id
+            ];
+            let fields = ['r_name,r_address,r_capacity,r_price,r_description, r_owner_id'];
+            let result = await addRestaurant(values,fields);
+            fields = ['ri_restaurant_id,ri_filepath,ri_is_main'];
+            values = [
+                result.insertId, image, true
+            ];
+            await addRestaurantImage(values, fields);
+            io.emit('update');
+            let id = result.insertId;
+            return socket.emit("Adding complete!",id);
+        }
+    });
+
+    socket.on('change-rest', async (req) => {
+        const id = req.id;
+        if(!verifyUserToken(req)) return;
+        const user = req.user;
+        const { name, address, capacity, price, description} = req;
+        const image = req.imageName;
+        const oldInfo = await getRestaurantById(id);
+        if(user.role_name!=='admin' && oldInfo.r_owner_id!==user.u_id) {
+            return socket.emit('Недостаточно прав!');
+        }
+        const nameResult = await getAllRestaurants({"r_name":name});
+        let correct = true;
+        let errors = {};
+        if(nameResult.length>0 && oldInfo.r_name!==nameResult[0].r_name) {
+            correct = false;
+            errors.nameExistsError = 'Имя ресторана уже занято!';
+        }
+        if(!correct) {
+            if(image) fs.rmSync(imagesFolder+image);
+            return socket.emit("Errors", errors);
+        }
+        else {
+            if(image) {
+                let oldImage = (await getRestaurantImages(id))[0];
+                await fs.rm(imagesFolder+oldImage.ri_filepath,()=>{
+
+                });
+                await changeRestaurantImage(oldImage.ri_filepath, image)
+            }
+            let values =
+                [name, address, capacity, price, description, id];
+            let fields = ['r_name','r_address','r_capacity','r_price','r_description'];
+            await updateRestaurant(values,fields,id);
+            io.emit('update');
+            return  socket.emit('Информация о ресторане изменена!');
+        }
+    });
+
+    socket.on('delete-rest', async (req) => {
+        const r_id = req.id;
+        if(!verifyUserToken(req)) return;
+        const user = req.user;
+        const oldInfo = await getRestaurantById(r_id);
+        if(user.role_name!=='admin' && oldInfo.r_owner_id!==user.u_id)
+            return socket.emit('Недостаточно прав!');
+        if(oldInfo==undefined) {
+            return socket.emit("Ресторан с id "+r_id+" не существует!");
+        }
+        else {
+            let images = await getRestaurantImages(r_id);
+            for (let i = 0; i < images.length; i++) {
+                try {
+                    fs.rmSync(imagesFolder + images[i].ri_filepath);
+                }catch (reason) {
+
+                }
+            }
+            await deleteRestaurant(r_id);
+            io.emit('update');
+            return socket.emit('Ресторан удалён!');
+        }
+    });
+});
 
 //my lovely functions <3
-
-async function fireLongPolling() {
-    for (let subscriber in subscribers) {
-        if(subscribers[subscriber] && !subscribers[subscriber].headersSent) subscribers[subscriber].status(200).send({message:"updated"});
-    }
-    subscribers = {};
-}
 
 function getAllRestaurants (filter) {
     let sqlQuery = 'SELECT * FROM Restaurants';
@@ -518,4 +541,6 @@ function deleteRestaurant (id) {
     });
 }
 
-server.listen(8080)
+server.listen(3001, () => {
+    console.log('listening on *:3001');
+});

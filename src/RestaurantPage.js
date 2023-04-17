@@ -3,13 +3,13 @@ import Header from "./Header";
 import styles from './styles/RestaurantPage.module.css';
 import AbsolutePanel from "./buttons/AbsolutePanel";
 import {useNavigate, useSearchParams} from "react-router-dom";
-import axios from "axios";
 import ChangeButton from "./buttons/ChangeButton";
 import DeleteButton from "./buttons/DeleteButton";
 import LoginButton from "./buttons/LoginButton";
 import LogoutButton from "./buttons/LogoutButton";
 import UserContext from "./contexts/UserContext";
 import NoAuthorizedPart from "./NoAuthorizedPart";
+import {useCookies} from "react-cookie";
 
 function RestaurantPage() {
 
@@ -18,36 +18,38 @@ function RestaurantPage() {
     const [loading, setLoading] = useState(true);
     const [images, setImages] = useState();
     const navigate = useNavigate();
-    const {user, getUser} = useContext(UserContext);
-    const config = {
-        withCredentials: true
-    }
-    const getRestaurant = () => {
-        axios.get("http://localhost:8080/getRestaurantById?id="+searchParams.get("id"),config)
-            .then(response => {
-                setRestaurant(response.data.restaurant);
-            }).catch(reason => {
-                setRestaurant("");
-            // navigate('/main' + restaurant.r_id,{replace: true});
-        });
-        axios.get("http://localhost:8080/getImages?id="+searchParams.get("id"),config)
-            .then(response => {
-                setImages(response.data.images);
-            }).catch(reason => setImages(""));
-    }
+    const {user, getUser, socket} = useContext(UserContext);
+    const [cookies] = useCookies(['JWT']);
 
-    const poll = () => {
-        axios.get("http://localhost:8080/long-polling",config)
-            .then(response => {
-                if(response.data.message==="updated") getRestaurant();
-                poll();
-            });
+    const getRestaurant = () => {
+        let req = {};
+        req.id = searchParams.get("id");
+        req.cookies = cookies;
+        socket.emit("getRestaurantById", req);
+        socket.emit("getImages", req);
     }
 
     useEffect(()=>{
         getRestaurant();
         getUser();
-        poll();
+
+        socket.on("getRestaurantById", (restaurant) => {
+            if(!restaurant) navigate("/main",{replace:true})
+            setRestaurant(restaurant);
+        });
+
+        socket.on("getImages", (images) => {
+            setImages(images);
+        });
+
+        socket.on('Unauthorized', (restaurant) => {
+            setRestaurant("");
+            setImages("");
+        });
+
+        socket.on("update", () => {
+            getRestaurant();
+        });
     },[]);
 
     useEffect(()=>{
@@ -62,7 +64,6 @@ function RestaurantPage() {
         return capacity+' гостей'
     }
 
-    console.log(restaurant + " "+ images + " " + user)
     if(loading) {
         return (
             <Header/>

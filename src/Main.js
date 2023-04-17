@@ -3,13 +3,13 @@ import MainContent from "./MainContent";
 import FilterButton from "./buttons/FilterButton";
 import FilterSlider from "./FilterSlider";
 import FilterContext from './contexts/FilterContext';
-import axios from "axios";
 import RestaurantContext from "./contexts/RestaurantContext";
 import {useSearchParams} from "react-router-dom";
 import AbsolutePanel from "./buttons/AbsolutePanel";
 import LoginButton from "./buttons/LoginButton";
 import UserContext from "./contexts/UserContext";
 import LogoutButton from "./buttons/LogoutButton";
+import {useCookies} from "react-cookie";
 
 function Main() {
 
@@ -17,36 +17,34 @@ function Main() {
     const [restaurants, setRestaurants] = useState([]);
     const [images, setImages] = useState([]);
     const [searchParams] = useSearchParams();
-    const {user, getUser} = useContext(UserContext);
-    const config = {
-        withCredentials: true
-    }
+    const {user, getUser, socket} = useContext(UserContext);
+    const [cookies] = useCookies(['JWT']);
+
     const getRestaurants = () => {
-        axios.get("http://localhost:8080/getAllRestaurants?"+searchParams.toString(),config)
-            .then(response => {
-                setRestaurants(response.data.restaurants);
-            });
-        axios.get("http://localhost:8080/getMainImages",config)
-            .then(response => {
-                setImages(response.data.images);
-            });
+        let req = {};
+        req.name = searchParams.get("name");
+        req.price = searchParams.get("price");
+        req.capacityFrom = searchParams.get("capacityFrom");
+        req.capacityTo = searchParams.get("capacityTo");
+        req.cookies = cookies;
+        socket.emit("getAllRestaurants", req);
+        socket.emit("getMainImages", req);
     }
-
-    const poll = () => {
-        axios.get("http://localhost:8080/long-polling",config)
-            .then(response => {
-                if(response.data.message==="updated") getRestaurants();
-                poll();
-            });
-    }
-
-    useEffect(()=>{
-        getUser();
-    },[]);
 
     useEffect(()=>{
         getRestaurants();
-        poll();
+
+        socket.on("getAllRestaurants", (restaurants) => {
+            setRestaurants(restaurants);
+        });
+
+        socket.on("getMainImages", (images) => {
+            setImages(images);
+        });
+
+        socket.on("update", () => {
+            getRestaurants();
+        });
     },[user]);
 
     return (

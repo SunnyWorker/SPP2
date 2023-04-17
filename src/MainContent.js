@@ -19,7 +19,6 @@ function MainContent() {
     function closeFilter() {
         if(filter==="open") setFilter("close");
     }
-    console.log(user==="")
     return (
       <div ref={mainRef} className="main" onClick={closeFilter}>
           <Header/>

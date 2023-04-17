@@ -1,4 +1,4 @@
-import React, {useContext, useRef} from 'react';
+import React, {useContext, useEffect, useRef} from 'react';
 import Header from "../Header";
 import {useNavigate} from "react-router-dom";
 import '../styles/RegistrationForm.css';
@@ -26,6 +26,22 @@ function RegistrationForm(props) {
     const alreadyAuthorizedErrorRef = useRef();
     const navigate = useNavigate();
     const {user, getUser} = useContext(UserContext);
+    const {socket} = useContext(UserContext);
+
+    useEffect(()=>{
+        socket.on("set-cookie", (cookie) => {
+            navigate("/main",{replace:true})
+        });
+    },[]);
+
+    useEffect(()=>{
+        socket.on("Errors", (errors) => {
+            if(nicknameErrorRef.current && emailErrorRef.current && alreadyAuthorizedErrorRef.current)
+                analyzeErrorReason(errors,
+                    [nicknameErrorRef, emailErrorRef, alreadyAuthorizedErrorRef],
+                    ["nicknameError", "emailError", "alreadyAuthorizedError"])
+        });
+    },[nicknameErrorRef, emailErrorRef, alreadyAuthorizedErrorRef]);
 
     function handleClick() {
         try {
@@ -46,21 +62,34 @@ function RegistrationForm(props) {
             else passwordErrorRef.current.style.display = 'none';
 
             if (correct===0) {
-
                 const config = {
                     headers: {
                         'content-type': 'multipart/form-data'
                     },
                     withCredentials: true
                 }
-
-                axios.post("http://localhost:8080/registration", formData, config).then(response => {
-                    navigate("/main",{replace: true});
-                }).catch(reason => {
-                    analyzeErrorReason(reason,
-                        [nicknameErrorRef, emailErrorRef, alreadyAuthorizedErrorRef],
-                        ["nicknameError", "emailError", "alreadyAuthorizedError"])
-                });
+                let req = {};
+                req.nickname = formData.get('nickname');
+                req.surname = formData.get('surname');
+                req.name = formData.get('name');
+                req.email = formData.get('email');
+                req.patronymic = formData.get('patronymic');
+                req.password = formData.get('password');
+                req.sex = formData.get('sex');
+                req.role = formData.get('role');
+                req.image = formData.get('image');
+                if(req.image) {
+                    axios.post("http://localhost:3001/load-picture",formData, config).then((response)=>{
+                        req.imageName = response.data.name;
+                        console.log(req.imageName)
+                        socket.emit("registration",req);
+                    }).catch(reason => {
+                        socket.emit("registration",req);
+                    })
+                }
+                else {
+                    socket.emit("registration",req);
+                }
 
             }
         } catch (errors) {

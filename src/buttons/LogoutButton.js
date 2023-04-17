@@ -1,27 +1,26 @@
-import React, {useContext} from 'react';
+import React, {useContext, useEffect} from 'react';
 import styles from "../styles/AdminPanel.module.css";
 import {useNavigate} from "react-router-dom";
 import axios from "axios";
 import UserContext from "../contexts/UserContext";
+import {useCookies} from "react-cookie";
 
 function LogoutButton(props) {
-
+    const {getUser, socket} = useContext(UserContext);
+    const [cookies, setCookies, clearCookies] = useCookies(['JWT']);
     const navigate = useNavigate();
-    const {user, getUser} = useContext(UserContext);
-    const config = {
-        withCredentials: true
-    }
 
     function logout() {
-        axios.post("http://localhost:8080/logout","",config).then((response)=>{
-            if(response.status===200) {
-                getUser();
-                navigate("/main",{replace: true});
-            }
-        }).catch(reason => {
-            alert("Вы не авторизованы!")
-        })
+        let req = {};
+        req.cookies = cookies;
+        socket.emit('logout',req);
     }
+
+    useEffect(()=>{
+        socket.on("clear-cookie", (cookie) => {
+            navigate("/main",{replace:true})
+        });
+    },[]);
 
     return (
         <div className={`${styles.logout}  ${styles.toggleDiv}`}>

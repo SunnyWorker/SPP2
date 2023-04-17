@@ -9,6 +9,7 @@ import NoAuthorizedPart from "../NoAuthorizedPart";
 import LoginButton from "../buttons/LoginButton";
 import LogoutButton from "../buttons/LogoutButton";
 import AbsolutePanel from "../buttons/AbsolutePanel";
+import {useCookies} from "react-cookie";
 
 function AddForm() {
 
@@ -18,14 +19,27 @@ function AddForm() {
     const capacityRef = useRef();
     const priceRef = useRef();
     const imageRef = useRef();
-    const {user, getUser} = useContext(UserContext);
+    const {user, getUser, socket} = useContext(UserContext);
     const [loading, setLoading] = useState(true);
     const nameExistsErrorRef = useRef();
     const navigate = useNavigate();
+    const [cookies] = useCookies(['JWT']);
 
     useEffect(()=>{
         getUser();
+
+        socket.on('Adding complete!', (id) => {
+            navigate('/restaurant?id=' + id,{replace: true});
+        });
     },[]);
+
+    useEffect(()=>{
+        socket.on("Errors", (errors) => {
+            if (nameExistsErrorRef.current) {
+                analyzeErrorReason(errors,[nameExistsErrorRef],["nameExistsError"])
+            }
+        });
+    },[nameExistsErrorRef]);
 
     function handleClick() {
         try {
@@ -38,19 +52,28 @@ function AddForm() {
             correct += validateField(imageRef,formData.get('image'),"")
 
             if (correct===0) {
-
+                let req = {};
                 const config = {
                     headers: {
                         'content-type': 'multipart/form-data'
                     },
                     withCredentials: true
                 }
+                req.name = formData.get('name');
+                req.address = formData.get('address');
+                req.capacity = formData.get('capacity');
+                req.price = formData.get('price');
+                req.description = formData.get('description');
+                req.image = formData.get('image');
+                req.cookies = cookies;
 
-                axios.post("http://localhost:8080/add-rest", formData, config).then(response => {
-                    navigate("/main",{replace: true});
-                }).catch(reason => {
-                    analyzeErrorReason(reason,[nameExistsErrorRef],["nameExistsError"])
-                });
+                if(req.image && req.image!=="") {
+                    axios.post("http://localhost:3001/load-picture",formData, config).then((response)=>{
+                        req.imageName = response.data.name;
+                        console.log(req.imageName)
+                        socket.emit("add-rest",req);
+                    })
+                }
 
             }
         } catch (errors) {
@@ -119,10 +142,10 @@ function AddForm() {
     }
     else if(user !== "" && user.role_name!==process.env.REACT_APP_ADMIN_ROLE && user.role_name!==process.env.REACT_APP_OWNER_ROLE) {
         return (
-          <>
-              <Header/>
-              <NoAuthorizedPart message={"Вы не имеете права добавлять рестораны!"} advice={"И вы не можете это исправить!"}  href={"/main"} linkText={"В главное меню!"}/>
-          </>
+            <>
+                <Header/>
+                <NoAuthorizedPart message={"Вы не имеете права добавлять рестораны!"} advice={"И вы не можете это исправить!"}  href={"/main"} linkText={"В главное меню!"}/>
+            </>
         );
     }
     else if(user==="") {
